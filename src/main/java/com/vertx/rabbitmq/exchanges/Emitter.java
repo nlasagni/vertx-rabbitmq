@@ -1,5 +1,6 @@
-package com.wedriveu.rd;
+package com.vertx.rabbitmq.exchanges;
 
+import com.vertx.rabbitmq.util.Log;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -23,11 +24,15 @@ public class Emitter {
         client.start(onStartCompleted -> {
                 if (onStartCompleted.succeeded()) {
                     Log.info(TAG, "Started RabbitQM client");
-                   declareExchange(onDeclareCompleted -> {
+                   declareExchanges(onDeclareCompleted -> {
                        if (onDeclareCompleted.succeeded()) {
-                           Log.info(TAG, "Declared exchange \"" + Constants.EXCHANGE_NAME_USER + "\"");
+                           Log.info(TAG, "Declared exchange \""
+                                   + Constants.EXCHANGE_NAME_USER
+                                   + "\" and \""
+                                   + Constants.EXCHANGE_NAME_VEHICLE + "\"");
                            String message = "Hello RabbitMQ, from Vert.x !";
-                           publishToConsumer(Constants.EXCHANGE_NAME_USER, Constants.CONSUMER_MARCO, message);
+                           publishToConsumer(Constants.EXCHANGE_NAME_USER, String.format(Constants.ROUTING_KEY_USER, Constants.CONSUMER_MARK), message + " USER");
+                           publishToConsumer(Constants.EXCHANGE_NAME_VEHICLE, String.format(Constants.ROUTING_KEY_VEHICLE, Constants.CONSUMER_MARK), message + " VEHICLE");
                        } else {
                            Log.error(TAG, onDeclareCompleted.cause().getMessage(), onDeclareCompleted.cause());
                        }
@@ -39,16 +44,27 @@ public class Emitter {
         );
     }
 
-    private static void declareExchange(Handler<AsyncResult<Void>> handler) {
-        client.exchangeDeclare(Constants.EXCHANGE_NAME_USER, Constants.EXCHANGE_TYPE, false, false, handler);
+    private static void declareExchanges(Handler<AsyncResult<Void>> handler) {
+        client.exchangeDeclare(Constants.EXCHANGE_NAME_USER,
+                Constants.EXCHANGE_TYPE,
+                false,
+                false,
+                onDeclare -> {
+                    client.exchangeDeclare(Constants.EXCHANGE_NAME_VEHICLE,
+                            Constants.EXCHANGE_TYPE,
+                            false,
+                            false,
+                            handler);
+        });
     }
 
-    private static void publishToConsumer(String exchangeName, String consumerName, String message) {
-        String routingKey = String.format(Constants.ROUTING_KEY_USER, consumerName);
+    private static void publishToConsumer(String exchangeName,
+                                          String routingKey,
+                                          String message) {
         JsonObject messageObj = new JsonObject().put(Constants.MESSAGE_BODY, message);
         client.basicPublish(exchangeName, routingKey, messageObj, onPublish -> {
             if (onPublish.succeeded()) {
-                Log.info(TAG, "Sent message to " + Constants.CONSUMER_MARCO);
+                Log.info(TAG, "Sent message to " + Constants.CONSUMER_MARK);
             } else {
                 Log.error(TAG, onPublish.cause().getMessage(), onPublish.cause());
             }

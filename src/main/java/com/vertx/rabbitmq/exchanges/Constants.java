@@ -1,4 +1,4 @@
-package com.wedriveu.rd;
+package com.vertx.rabbitmq.exchanges;
 
 /**
  * Created by nicolalasagni on 29/07/2017.
@@ -16,7 +16,7 @@ public interface Constants {
 
     String EVENT_BUS_ADDRESS = "user.login";
 
-    String CONSUMER_MARCO = "marco";
-    String CONSUMER_MICHELE = "michele";
+    String CONSUMER_MARK = "mark";
+    String CONSUMER_MICHAEL = "michael";
 
 }

@@ -1,5 +1,6 @@
-package com.wedriveu.rd;
+package com.vertx.rabbitmq.exchanges;
 
+import com.vertx.rabbitmq.util.Log;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -12,7 +13,7 @@ import java.util.concurrent.TimeoutException;
 /**
  * Created by nicolalasagni on 29/07/2017.
  */
-public class BasicConsumer {
+public abstract class BasicConsumer {
 
     private static String QUEUE_NAME = "user-login";
 
@@ -36,18 +37,10 @@ public class BasicConsumer {
         client.start(onStartCompleted -> {
             if (onStartCompleted.succeeded()) {
                 Log.info(tag, "RabbitMQ client started");
-
+                handler.handle(Future.succeededFuture());
             } else {
                 Log.error(tag, onStartCompleted.cause().getMessage(), onStartCompleted.cause());
-                handler.handle(io.vertx.core.Future.failedFuture(onStartCompleted.cause().getMessage()));
-            }
-        });
-    }
-
-    protected void startDefaultBehaviour(Handler<AsyncResult<Void>> handler) {
-        declareQueue(onQueueDeclared -> {
-            if (onQueueDeclared.succeeded()) {
-
+                handler.handle(Future.failedFuture(onStartCompleted.cause().getMessage()));
             }
         });
     }
@@ -60,7 +53,6 @@ public class BasicConsumer {
                 String queueName = onDeclareCompleted.result().getString(Constants.QUEUE_NAME_JSON_KEY);
                 Log.info(tag, "Declared queue " + queueName);
                 handler.handle(Future.succeededFuture());
-                bindQueueToExchange(Constants.EXCHANGE_NAME_USER, Constants.ROUTING_KEY_USER, handler);
             } else {
                 Log.error(tag, onDeclareCompleted.cause().getMessage(), onDeclareCompleted.cause());
                 handler.handle(Future.failedFuture(onDeclareCompleted.cause().getMessage()));
@@ -68,7 +60,9 @@ public class BasicConsumer {
         });
     }
 
-    protected void bindQueueToExchange(String exchangeName, String baseRoutingKey, Handler<AsyncResult<Void>> handler) {
+    protected void bindQueueToExchange(String exchangeName,
+                                       String baseRoutingKey,
+                                       Handler<AsyncResult<Void>> handler) {
         client.queueBind(queueName,
                 exchangeName,
                 String.format(baseRoutingKey, name),
@@ -76,7 +70,7 @@ public class BasicConsumer {
                     if (onBind.succeeded()) {
                         Log.info(tag,
                                 "Bound " + queueName + " to exchange \"" + exchangeName + "\"");
-                        registerConsumer(handler);
+                        handler.handle(Future.succeededFuture());
                     } else {
                         Log.error(tag, onBind.cause().getMessage(), onBind.cause());
                         handler.handle(io.vertx.core.Future.failedFuture(onBind.cause().getMessage()));
@@ -84,23 +78,21 @@ public class BasicConsumer {
                 });
     }
 
-    protected void registerConsumer(Handler<AsyncResult<Void>> handler) {
-        client.basicConsume(queueName, Constants.EVENT_BUS_ADDRESS, onRegistered -> {
-            if (onRegistered.succeeded()) {
-                Log.info(tag,"Registered to queue " + queueName);
-                consume();
-            } else {
-                Log.error(tag, onRegistered.cause().getMessage(), onRegistered.cause());
-                handler.handle(io.vertx.core.Future.failedFuture(onRegistered.cause().getMessage()));
-            }
-        });
-    }
-
-    protected void consume() {
+    protected void registerConsumer() {
         // Create the event bus handler which messages will be sent to
         vertx.eventBus().consumer(Constants.EVENT_BUS_ADDRESS, msg -> {
             JsonObject json = (JsonObject) msg.body();
             System.out.println("Got message: " + json.getString("body"));
+        });
+    }
+
+    protected void basicConsume() {
+        client.basicConsume(queueName, Constants.EVENT_BUS_ADDRESS, onRegistered -> {
+            if (onRegistered.succeeded()) {
+                Log.info(tag,"Registered to queue " + queueName);
+            } else {
+                Log.error(tag, onRegistered.cause().getMessage(), onRegistered.cause());
+            }
         });
     }
 
